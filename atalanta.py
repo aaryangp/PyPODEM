@@ -10,7 +10,7 @@ class SCLTestingFramework:
         self.atalanta_path = os.path.expanduser("~/Atalanta/atalanta")
         
         os.makedirs(self.report_dir, exist_ok=True)
-        self.plot_data = {'circuits': [], 'stuck_at': [], 'los': [], 'loc': []}
+        self.plot_data = {'circuits': [], 'stuck_at': []}
 
     def run_atalanta_backend(self, circuit_name):
         """Runs Atalanta and parses coverage by searching for the structural colon separator."""
@@ -60,23 +60,12 @@ class SCLTestingFramework:
                             vectors.append(data_sub_parts[0])
         return vectors
 
-    def encode_los_pairs(self, vectors):
-        """Models Launch-off-Shift behavior by executing a 1-bit right shift."""
-        return [(v, '0' + v[:-1] if len(v) > 1 else '0') for v in vectors]
-
-    def encode_loc_pairs(self, vectors):
-        """Models Launch-off-Capture behavior via sequential vector pairs."""
-        return [(vectors[i], vectors[i+1]) for i in range(len(vectors) - 1)]
-
     def generate_analytics_plot(self):
         """Generates and saves a high-quality chart showing true pattern scaling trends."""
-        plt.figure(figsize=(12, 6))
+        plt.figure(figsize=(10, 5))
         x = range(len(self.plot_data['circuits']))
-        width = 0.25
         
-        plt.bar([i - width for i in x], self.plot_data['stuck_at'], width, label='Static Stuck-At Vectors', color='#1f77b4')
-        plt.bar(x, self.plot_data['los'], width, label='LOS Pairs (Shift)', color='#ff7f0e')
-        plt.bar([i + width for i in x], self.plot_data['loc'], width, label='LOC Pairs (Capture)', color='#2ca02c')
+        plt.bar(x, self.plot_data['stuck_at'], width=0.4, label='Static Stuck-At Vectors', color='#1f77b4')
         
         plt.xlabel('ISCAS\'85 Benchmark Circuits', fontweight='bold', fontsize=11)
         plt.ylabel('Calculated Pattern Volume Count', fontweight='bold', fontsize=11)
@@ -92,30 +81,29 @@ class SCLTestingFramework:
 
     def execute_suite(self):
         print("=========================================================================")
-        print("     SCL EFTG UNIT: BATCH PROCESSING SYSTEM WITH COVERAGE METRICS        ")
+        print("    SCL EFTG UNIT: BATCH PROCESSING SYSTEM WITH COVERAGE METRICS        ")
         print("=========================================================================\n")
         
+        if not os.path.exists(self.bench_dir):
+            print(f"[-] Error: Benchmark directory missing at {self.bench_dir}")
+            return
+
         circuits = [os.path.splitext(f)[0] for f in os.listdir(self.bench_dir) if f.endswith('.bench')]
         circuits.sort(key=lambda item: int(item[1:]) if item[1:].isdigit() else 0)
         
         print(f"[+] Found {len(circuits)} target circuits for evaluation.\n")
-        print(f"{'Circuit':<12}{'Stuck-At Cov':<16}{'Patterns':<14}{'LOS Pairs':<14}{'LOC Pairs':<14}")
-        print("-" * 75)
+        print(f"{'Circuit':<12}{'Stuck-At Cov':<16}{'Patterns':<14}")
+        print("-" * 42)
 
         for ckt in circuits:
             coverage_metric = self.run_atalanta_backend(ckt)
             if coverage_metric:
                 vectors = self.parse_patterns(ckt)
                 if vectors:
-                    los = self.encode_los_pairs(vectors)
-                    loc = self.encode_loc_pairs(vectors)
-                    
-                    print(f"{ckt:<12}{coverage_metric:<16}{len(vectors):<14}{len(los):<14}{len(loc):<14}")
+                    print(f"{ckt:<12}{coverage_metric:<16}{len(vectors):<14}")
                     
                     self.plot_data['circuits'].append(ckt)
                     self.plot_data['stuck_at'].append(len(vectors))
-                    self.plot_data['los'].append(len(los))
-                    self.plot_data['loc'].append(len(loc))
         
         if self.plot_data['circuits']:
             self.generate_analytics_plot()
