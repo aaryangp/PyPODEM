@@ -1,166 +1,256 @@
 # PyPODEM
 
-> A Python implementation of the **PODEM (Path-Oriented Decision Making)** Automatic Test Pattern Generation (ATPG) algorithm for combinational circuits using the single stuck-at fault model.
-
 ![Python](https://img.shields.io/badge/Python-3.x-blue.svg)
 ![ATPG](https://img.shields.io/badge/EDA-ATPG-success)
 ![VLSI](https://img.shields.io/badge/VLSI-Testing-orange)
 
-## Overview
 
-PyPODEM is a from-scratch implementation of the classical **PODEM ATPG algorithm**, developed to generate test vectors for detecting **single stuck-at faults** in combinational digital circuits.
+A robust, object-oriented **Automatic Test Pattern Generation (ATPG)** and fault simulation engine built entirely in **Python** from first principles.
 
-The project implements the complete ATPG flow including:
+The engine implements the classical **PODEM (Path-Oriented Decision Making)** implicit enumeration search framework, restricting all decisions exclusively to **Primary Inputs (PIs)** following **P. Goel's original formulation**.
 
-- Parsing ISCAS'85 .bench netlists
-- Five-valued D-Calculus logic simulation
-- Recursive PODEM search algorithm
-- Gate-aware backtrace
-- D-Frontier computation
-- Fault collapsing
-- Fault dropping
-- Independent fault simulation for verification
+Designed as a rigorous Electronic Design Automation (EDA) tool prototype, **PyPODEM** performs full topological circuit exploration, incorporates static look-ahead fault collapsing, and integrates incremental fault dropping for compact test generation.
 
-The implementation was benchmarked against the industry-standard **ATALANTA ATPG** tool on ISCAS'85 benchmark circuits.
+The framework has been benchmarked against **Virginia Tech's ATALANTA ATPG engine** using standard **ISCAS'85 combinational benchmark circuits**.
 
 ---
 
-## Features
+## 🚀 Key Architectural Highlights
 
-- ✅ Complete PODEM implementation in Python
-- ✅ Five-valued logic (0, 1, X, D, D')
-- ✅ ISCAS'85 .bench parser
-- ✅ Topological circuit construction (Kahn's Algorithm)
-- ✅ Recursive backtracking search
-- ✅ Gate-aware backtrace
-- ✅ D-Frontier based fault propagation
-- ✅ Stuck-at fault generation (SA0 / SA1)
-- ✅ Fault equivalence collapsing
-- ✅ Fault dropping for vector minimization
-- ✅ Independent Boolean fault simulator for verification
-- ✅ Coverage reporting and test vector generation
+### 🔹 5-Valued D-Calculus Simulation
+
+Implements Roth's five-valued logic system:
+
+
+0
+1
+X
+D
+D'
+
+
+using explicit lookup tables, enabling simultaneous simulation of both the fault-free and faulty circuits.
 
 ---
 
-## Supported Gates
+### 🔹 Agnostic Netlist DAG Construction
 
+- Parses standard .bench netlists
+- Builds directed acyclic graph (DAG) representations
+- Uses **Kahn's Algorithm** for topological sorting
+- Eliminates logic race conditions during simulation
+
+---
+
+### 🔹 Look-Ahead Fault Collapsing
+
+Performs static fault equivalence analysis to reduce the initial single stuck-at fault universe before ATPG execution, significantly lowering search complexity.
+
+---
+
+### 🔹 Heuristic Search & Backtracing
+
+Implements:
+
+- Dynamic **D-Frontier** tracking
+- Objective computation
+- Structural backtrace through gate fan-in cones
+
+while ensuring **all decision variables remain Primary Inputs**, exactly as defined in the original PODEM algorithm.
+
+---
+
+### 🔹 Dual-Core Verification Pipeline
+
+Includes an independent **Boolean (0/1) fault simulator** with no D-token dependencies that verifies every generated test vector independently from the PODEM engine.
+
+---
+
+# 📦 System Architecture
+
+The framework is organized into **10 modular computational components**.
+
+---
+
+## 1. Logic Values
+
+Defines
+
+- X
+- D
+- D'
+
+along with truth tables for
+
+- NAND
 - AND
 - OR
-- NAND
 - NOR
 - NOT
 - XOR
-- BUFFER
+- BUFF
+
+using explicit lookup matrices for accurate D-calculus propagation.
 
 ---
 
-## Algorithm Flow
+## 2. Bench Parser
 
+Reads .bench files and constructs
 
-Read .bench file
-        │
-        ▼
-Build Circuit Graph
-        │
-        ▼
-Generate Stuck-at Fault List
-        │
-        ▼
-Fault Collapsing
-        │
-        ▼
-For every remaining fault
-        │
-        ▼
-Run PODEM
-        │
-        ▼
-Generate Test Vector
-        │
-        ▼
-Fault Simulation
-        │
-        ▼
-Drop Detected Faults
-        │
-        ▼
-Repeat until all faults processed
+- Primary Inputs
+- Primary Outputs
+- Gate database
+- Fanout map
+- Topological ordering (self.topo)
 
+using **Kahn's Algorithm**.
 
 ---
 
-## Benchmark Circuits
+## 3. Logic & Fault Simulators
 
-The implementation has been evaluated on standard ISCAS'85 combinational benchmark circuits.
+### `simulate()`
 
-| Circuit | Inputs | Outputs | Gates |
-|----------|--------|----------|-------|
-| c17 | 5 | 2 | 6 |
-| c432 | 36 | 7 | 160 |
-| c499 | 41 | 32 | 202 |
-| c880 | 60 | 26 | 383 |
+Performs complete forward propagation while injecting the target stuck-at fault during simulation.
 
----
+### `simulate_incremental()`
 
-## Results
-
-| Circuit | Fault Coverage | Test Vectors |
-|----------|---------------|--------------|
-| c17 | **100%** | 7 |
-| c432 | **95.38%** | 43 |
-| c499 | **100%** | 63 |
-| c880 | **100%** | 92 |
+Updates only the downstream logic cone after an input modification, reducing unnecessary recomputation.
 
 ---
 
-## Comparison with ATALANTA
+## 4. D-Frontier & Backtrace
 
-| Circuit | PyPODEM | ATALANTA |
-|----------|----------|-----------|
-| c17 | 100% | 100% |
-| c432 | 95.38% | 99.0% |
-| c499 | 100% | 96.6% |
-| c880 | 100% | 100% |
+### `d_frontier()`
 
-The implementation achieves full coverage on three benchmark circuits while producing fewer test vectors than ATALANTA for selected cases through efficient fault dropping.
+Identifies propagation candidates by locating gates with:
 
----
+- D/D' inputs
+- Unknown outputs
 
-## Concepts Used
+### `backtrace()`
 
-- Automatic Test Pattern Generation (ATPG)
-- PODEM Algorithm
-- D-Calculus
-- Five-Valued Logic
-- Fault Activation
-- Fault Propagation
-- D-Frontier
-- Objective Selection
-- Gate-Aware Backtrace
-- Fault Simulation
-- Fault Collapsing
-- Topological Sorting
-- Recursive Backtracking
+Maps internal objectives back to Primary Inputs while correctly handling inversions through
+
+- NAND
+- NOR
+- NOT
 
 ---
 
-## Future Improvements
+## 5. PODEM Search Engine
 
-- FAN ATPG implementation
-- Transition Delay Fault ATPG
-- Bridging Fault Model
-- Parallel Fault Simulation
+### `podem()`
+
+Recursive branch-and-bound ATPG engine with configurable backtracking limits.
+
+### `fault_simulate_vector()`
+
+Applies every generated vector against the remaining fault list and immediately drops all detected faults to minimize the final vector set.
+
+---
+
+# 📊 Industrial Benchmark Results
+
+| Circuit | PyPODEM Coverage | ATALANTA Coverage | PyPODEM Vectors | ATALANTA Patterns | Vector Ratio | Remarks |
+|----------|-----------------|------------------|----------------|------------------|--------------|---------|
+| **c17** | **100.00%** | **100.0%** | 7 | 7 | **1.00×** | Perfect agreement validates parser, simulator and backtrace implementation. |
+| **c432** | **95.38%** | **99.0%** | 43 | 63 | **0.68×** | Generates 32% fewer vectors while maintaining high coverage. |
+| **c499** | **100.00%** | **96.6%** | 63 | 56 | **1.13×** | Successfully resolves complex XOR propagation paths. |
+| **c880** | **100.00%** | **100.0%** | 92 | 148 | **0.62×** | Achieves identical coverage using 38% fewer vectors. |
+
+---
+
+# 🔍 Verification & Debugging
+
+The independent Boolean fault simulator helped identify two critical implementation bugs during development.
+
+## ✅ Missing Fault Injection
+
+The recursive simulator initially bypassed the targeted fault injection, causing the ATPG engine to evaluate only the fault-free circuit.
+
+**Result:** 0% fault coverage.
+
+---
+
+## ✅ Incorrect Backtrace Rules
+
+Corrected inversion handling for
+
+- NAND
+- NOR
+
+where non-controlling values were mistakenly selected instead of controlling values.
+
+---
+
+# 🛠 Installation
+
+## Prerequisites
+
+- Python 3.8+
+- Matplotlib *(optional, for analytics plots)*
+- Atalanta Tool from Github -> https://github.com/hsluoyz/Atalanta
+
+---
+
+The framework will
+
+- Parse benchmark circuits
+- Generate collapsed fault lists
+- Execute recursive PODEM
+- Perform fault dropping
+- Generate test vectors
+- Export CSV reports
+- Print execution statistics
+
+---
+
+
+# 🚀 Future Work
+
+### ⚡ C++ / Rust Port
+
+Port the validated Python implementation into a compiled language to improve execution speed and scalability.
+
+---
+
+### ⚡ FAN Algorithm
+
+Upgrade the ATPG engine from classical PODEM to **FAN (Fan-Out Oriented ATPG)** for improved heuristic pruning.
+
+---
+
+### ⚡ Advanced Fault Models
+
+Extend support to
+
+- Transition Delay Faults (TDF)
+- Bridging Faults
+- IDDQ Testing
+- Path Delay Faults
+
+---
+
+### ⚡ Parallel Fault Simulation
+
+Implement
+
+- Parallel Pattern Single Fault Simulation (PPSF)
+- GPU acceleration
 - Multi-threaded execution
-- C++/Rust implementation for higher performance
-- Sequential circuit support
+
+to process multiple vectors simultaneously.
 
 ---
 
-## References
+# 📚 References
 
-- P. Goel, *An Implicit Enumeration Algorithm to Generate Tests for Combinational Logic Circuits*, IEEE Transactions on Computers, 1981.
-- J. P. Roth, *Diagnosis of Automata Failures: A Calculus and a Method*, IBM Journal of Research and Development, 1966.
-- Brglez & Fujiwara, *ISCAS'85 Benchmark Suite*, IEEE ISCAS, 1985.
-- ATALANTA ATPG Tool (Virginia Tech)
+1. P. Goel, **"An Implicit Enumeration Algorithm to Generate Tests for Combinational Logic Circuits,"** IEEE Transactions on Computers, 1981.
 
----
+2. J. P. Roth, **"Diagnosis of Automata Failures: A Calculus and a Method,"** IBM Journal of Research and Development, 1966.
+
+3. Brglez & Fujiwara, **ISCAS'85 Benchmark Suite**, IEEE ISCAS, 1985.
+
+4. H. K. Lee and D. S. Ha, **ATALANTA ATPG Tool**, Virginia Tech.
